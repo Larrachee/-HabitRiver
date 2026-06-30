@@ -1,0 +1,330 @@
+:root {
+    --bg-color: #0f172a;
+    --card-bg: #1e293b;
+    --text-color: #f8fafc;
+    --text-muted: #94a3b8;
+    --primary-color: #38bdf8;
+    --primary-hover: #0ea5e9;
+    --border-color: #334155;
+    --grid-empty: #475569;
+    --grid-done: #10b981;
+    --streak-color: #f97316;
+}
+
+[data-theme="light"] {
+    --bg-color: #f8fafc;
+    --card-bg: #ffffff;
+    --text-color: #0f172a;
+    --text-muted: #64748b;
+    --primary-color: #0284c7;
+    --primary-hover: #0369a1;
+    --border-color: #e2e8f0;
+    --grid-empty: #cbd5e1;
+    --grid-done: #10b981;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Roboto, sans-serif;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    padding: 20px;
+}
+
+.container {
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.brand p {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.btn-icon {
+    background: none;
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+}
+
+/* Dashboard Layout */
+.main-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+@media (max-width: 768px) {
+    .main-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+.card {
+    background-color: var(--card-bg);
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border-color);
+}
+
+h2 {
+    margin-bottom: 15px;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Form & Dropdown */
+#habit-form {
+    display: flex;
+    gap: 10px;
+}
+
+#habit-form input,
+#habit-form select {
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-color);
+    color: var(--text-color);
+}
+
+#habit-form input {
+    flex: 2;
+}
+
+#habit-form select {
+    flex: 1;
+    cursor: pointer;
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    color: var(--bg-color);
+    font-weight: bold;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+/* FIX BUG: Seksi Profil Adaptif Mengikuti Theme Toggle */
+.profile-section {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    padding: 15px 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+.profile-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.avatar {
+    font-size: 2rem;
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    padding: 8px;
+    border-radius: 50px;
+}
+
+.xp-bar-container {
+    width: 250px;
+    height: 12px;
+    background-color: var(--grid-empty);
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 5px 0;
+}
+
+.xp-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #38bdf8, #818cf8);
+    width: 0%;
+    transition: width 0.4s ease;
+}
+
+#xp-text {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+/* Tombol Filter Kategori */
+.filter-container {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 15px;
+    overflow-x: auto;
+    padding-bottom: 5px;
+}
+
+.btn-filter {
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    padding: 6px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+.btn-filter.active {
+    background: var(--primary-color);
+    color: var(--bg-color);
+    font-weight: bold;
+    border-color: var(--primary-color);
+}
+
+/* Habit Items & Tags */
+.habit-card {
+    border: 1px solid var(--border-color);
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.habit-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.habit-title-area h3 {
+    font-size: 1.1rem;
+}
+
+.category-tag {
+    background-color: var(--border-color);
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-top: 2px;
+}
+
+.streak-badge {
+    background-color: rgba(249, 115, 22, 0.15);
+    color: var(--streak-color);
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    margin-top: 4px;
+    display: inline-block;
+    margin-left: 8px;
+}
+
+.habit-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.btn-done {
+    background: var(--grid-done);
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    color: white;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+
+.btn-delete {
+    background: #ef4444;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 6px;
+    color: white;
+    cursor: pointer;
+}
+
+/* Grid Cubes */
+.grid-container {
+    display: flex;
+    gap: 6px;
+    margin-top: 12px;
+    overflow-x: auto;
+}
+
+.grid-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.cube {
+    width: 22px;
+    height: 22px;
+    background-color: var(--grid-empty);
+    border-radius: 4px;
+    margin-bottom: 3px;
+}
+
+.cube.completed {
+    background-color: var(--grid-done);
+    box-shadow: 0 0 8px var(--grid-done);
+}
+
+/* Leaderboard */
+.leaderboard-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.95rem;
+}
+
+.leaderboard-item.user-row {
+    background-color: rgba(56, 189, 248, 0.1);
+    border-radius: 6px;
+    font-weight: bold;
+    border: 1px solid var(--primary-color);
+}
+
+.rank {
+    width: 30px;
+    font-weight: bold;
+}
+
+.player-name {
+    flex: 1;
+}
+
+.player-score {
+    color: var(--primary-color);
+    font-size: 0.85rem;
+}
+
+.chart-container {
+    position: relative;
+    height: 220px;
+    width: 100%;
+}
