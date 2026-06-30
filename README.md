@@ -54,4 +54,21 @@ Proyek ini sepenuhnya berjalan di sisi klien (client-side), sehingga tidak memer
 🧠 Logika Algoritma Penting
 1. Kalkulasi Streak Beruntun
 Aplikasi ini tidak sekadar menghitung total centang, melainkan melakukan looping mundur berbasis objek tanggal dari hari ini untuk memeriksa apakah rantai harian terputus:
+```text
+while (true) {
+    let dateStr = checkDate.toISOString().split('T')[0];
+    if (history[dateStr]) {
+        streak++;
+        checkDate.setDate(checkDate.getDate() - 1); // Mundur 1 hari
+    } else {
+        break; // Berhenti jika ada hari yang kosong
+    }
+}
+```
+2. Skala Leveling Matematis
+Setiap kenaikan level membutuhkan batas XP yang semakin besar secara linier, memberikan tantangan yang terukur bagi pengguna:
 
+$$\text{Next Level XP} = \text{Current Level} \times 100$$
+
+📝 Catatan Pengembangan Proyek
+Proyek ini dikembangkan murni sebagai proyek uji coba pribadi untuk memperkuat pemahaman mengenai core JavaScript tanpa framework luar. Fokus utama dari proyek ini adalah melatih penanganan manajemen state data lokal (JSON.parse & JSON.stringify) serta memastikan User Experience (UX) yang bersih melalui interaksi antarmuka yang responsif.
