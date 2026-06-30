@@ -1,0 +1,286 @@
+// --- STATE / DATABASE UTAMA ---
+let habits = JSON.parse(localStorage.getItem('habits')) || [];
+let userProfile = JSON.parse(localStorage.getItem('userProfile')) || { xp: 0, level: 1 };
+let currentFilter = 'All'; // Menyimpan state filter kategori aktif
+
+// Bot Kompetitor untuk Real-time Top Chart / Leaderboard
+const competitors = [
+    { name: "⚡ HabitMaster", baseXp: 450, level: 4 },
+    { name: "🔥 CodeSamurai", baseXp: 280, level: 3 },
+    { name: "🏃 KeepRunning", baseXp: 120, level: 2 },
+    { name: "📚 BookWorm", baseXp: 50, level: 1 }
+];
+
+// DOM Elements
+const habitForm = document.getElementById('habit-form');
+const habitNameInput = document.getElementById('habit-name');
+const habitCategoryInput = document.getElementById('habit-category');
+const habitList = document.getElementById('habit-list');
+const themeToggle = document.getElementById('theme-toggle');
+let progressChart;
+
+// --- FITUR THEME TOGGLE ---
+const savedTheme = localStorage.getItem('theme') || 'dark';
+document.documentElement.setAttribute('data-theme', savedTheme);
+themeToggle.textContent = savedTheme === 'light' ? '🌙 Dark Mode' : '☀️ Light Mode';
+
+themeToggle.addEventListener('click', () => {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    themeToggle.textContent = newTheme === 'light' ? '🌙 Dark Mode' : '☀️ Light Mode';
+});
+
+// --- LOGIKA TANGGAL (7 HARI TERAKHIR) ---
+function getPastSevenDays() {
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().split('T')[0];
+        const label = d.toLocaleDateString('en-US', { weekday: 'short' }).substring(0, 2);
+        days.push({ dateStr, label });
+    }
+    return days;
+}
+
+// --- PENGHITUNG STREAK ---
+function calculateStreak(history) {
+    let streak = 0;
+    let checkDate = new Date();
+    let todayStr = checkDate.toISOString().split('T')[0];
+    if (!history[todayStr]) {
+        checkDate.setDate(checkDate.getDate() - 1);
+    }
+    while (true) {
+        let dateStr = checkDate.toISOString().split('T')[0];
+        if (history[dateStr]) {
+            streak++;
+            checkDate.setDate(checkDate.getDate() - 1);
+        } else {
+            break;
+        }
+    }
+    return streak;
+}
+
+// --- SYSTEM GAMIFIKASI (LEVEL & XP) ---
+function addXP(amount) {
+    userProfile.xp += amount;
+    let nextLevelXp = userProfile.level * 100;
+
+    if (userProfile.xp >= nextLevelXp) {
+        userProfile.xp -= nextLevelXp;
+        userProfile.level += 1;
+        alert(`🎉 LEVEL UP! Kamu naik ke Level ${userProfile.level}!`);
+    } else if (userProfile.xp < 0) {
+        if (userProfile.level > 1) {
+            userProfile.level -= 1;
+            userProfile.xp = (userProfile.level * 100) + userProfile.xp;
+        } else {
+            userProfile.xp = 0;
+        }
+    }
+    localStorage.setItem('userProfile', JSON.stringify(userProfile));
+    updateProfileUI();
+    renderLeaderboard();
+}
+
+function updateProfileUI() {
+    const nextLevelXp = userProfile.level * 100;
+    const pct = (userProfile.xp / nextLevelXp) * 100;
+    document.getElementById('user-level').textContent = `Level ${userProfile.level} (Explorer)`;
+    document.getElementById('xp-bar').style.width = `${pct}%`;
+    document.getElementById('xp-text').textContent = `${userProfile.xp} / ${nextLevelXp} XP`;
+}
+
+// --- TOP CHART (LEADERBOARD) ---
+function renderLeaderboard() {
+    const leaderboardList = document.getElementById('leaderboard-list');
+    leaderboardList.innerHTML = '';
+    let totalUserXp = userProfile.xp;
+    for (let i = 1; i < userProfile.level; i++) { totalUserXp += i * 100; }
+
+    let boardData = [
+        { name: "👑 Kamu (Player)", totalXp: totalUserXp, level: userProfile.level, isUser: true },
+        ...competitors.map(c => ({ name: c.name, totalXp: c.baseXp, level: c.level, isUser: false }))
+    ];
+    boardData.sort((a, b) => b.totalXp - a.totalXp);
+
+    boardData.forEach((player, index) => {
+        const row = document.createElement('div');
+        row.classList.add('leaderboard-item');
+        if (player.isUser) row.classList.add('user-row');
+        row.innerHTML = `
+            <span class="rank">#${index + 1}</span>
+            <span class="player-name">${player.name}</span>
+            <span class="player-score">Lv.${player.level} (${player.totalXp} XP)</span>
+        `;
+        leaderboardList.appendChild(row);
+    });
+}
+
+// --- CHART ANALYTICS ---
+function updateChart() {
+    const pastDays = getPastSevenDays();
+    const labels = pastDays.map(d => d.label);
+    const dataValues = pastDays.map(day => habits.filter(h => h.history[day.dateStr]).length);
+
+    if (progressChart) { progressChart.destroy(); }
+
+    const ctx = document.getElementById('progressChart').getContext('2d');
+    progressChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Habits Completed',
+                data: dataValues,
+                borderColor: '#38bdf8',
+                backgroundColor: 'rgba(56, 189, 248, 0.05)',
+                borderWidth: 2,
+                tension: 0.3,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+    });
+}
+
+// --- MANAGEMENT FILTER KATEGORI ---
+window.filterHabits = (category) => {
+    currentFilter = category;
+
+    // Ganti class active pada tombol filter UI
+    const filterButtons = document.querySelectorAll('.btn-filter');
+    filterButtons.forEach(btn => {
+        if (btn.textContent === category || (category === 'All' && btn.textContent === 'All')) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+    renderHabits(); // Render ulang setelah disaring
+};
+
+// --- CRUD OPERASI HABIT ---
+habitForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = habitNameInput.value.trim();
+    const category = habitCategoryInput.value;
+    if (!name) return;
+
+    const newHabit = {
+        id: Date.now().toString(),
+        name: name,
+        category: category, // Menyimpan tag kategori pada object habit
+        history: {}
+    };
+
+    habits.push(newHabit);
+    saveAndRender();
+    habitNameInput.value = '';
+});
+
+window.toggleHabit = (id, dateStr) => {
+    habits = habits.map(habit => {
+        if (habit.id === id) {
+            if (habit.history[dateStr]) {
+                delete habit.history[dateStr];
+                addXP(-15);
+            } else {
+                habit.history[dateStr] = true;
+                addXP(15);
+            }
+        }
+        return habit;
+    });
+    saveAndRender();
+};
+
+window.deleteHabit = (id) => {
+    if (confirm('Hapus habit ini?')) {
+        habits = habits.filter(habit => habit.id !== id);
+        saveAndRender();
+    }
+};
+
+function saveAndRender() {
+    localStorage.setItem('habits', JSON.stringify(habits));
+    renderHabits();
+    updateChart();
+    renderLeaderboard();
+}
+
+// --- RENDER UTAMA DENGAN FILTER ---
+function renderHabits() {
+    habitList.innerHTML = '';
+    const pastDays = getPastSevenDays();
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    // Proses Saring Data Berdasarkan Kategori yang Dipilih
+    const filteredHabits = habits.filter(habit => {
+        if (currentFilter === 'All') return true;
+        return habit.category === currentFilter;
+    });
+
+    if (filteredHabits.length === 0) {
+        habitList.innerHTML = `<p style="text-align:center; color:var(--text-muted); padding:20px;">No habits found in this category.</p>`;
+        return;
+    }
+
+    filteredHabits.forEach(habit => {
+        const habitCard = document.createElement('div');
+        habitCard.classList.add('habit-card');
+
+        const isDoneToday = habit.history[todayStr] ? true : false;
+        const streak = calculateStreak(habit.history);
+
+        habitCard.innerHTML = `
+            <div class="habit-header">
+                <div class="habit-title-area">
+                    <h3>${habit.name}</h3>
+                    <span class="category-tag">${habit.category || '📦 General'}</span>
+                    <span class="streak-badge">🔥 ${streak} Days</span>
+                </div>
+                <div class="habit-actions">
+                    <button class="btn-done" onclick="toggleHabit('${habit.id}', '${todayStr}')">
+                        ${isDoneToday ? '↩️ Undo' : '✅ Done (+15 XP)'}
+                    </button>
+                    <button class="btn-delete" onclick="deleteHabit('${habit.id}')">🗑️</button>
+                </div>
+            </div>
+            <div class="grid-container" id="grid-${habit.id}"></div>
+        `;
+
+        habitList.appendChild(habitCard);
+
+        const gridContainer = document.getElementById(`grid-${habit.id}`);
+        pastDays.forEach(day => {
+            const dayWrapper = document.createElement('div');
+            dayWrapper.classList.add('grid-day');
+
+            const cube = document.createElement('div');
+            cube.classList.add('cube');
+            if (habit.history[day.dateStr]) cube.classList.add('completed');
+
+            const label = document.createElement('span');
+            label.textContent = day.label;
+
+            dayWrapper.appendChild(cube);
+            dayWrapper.appendChild(label);
+            gridContainer.appendChild(dayWrapper);
+        });
+    });
+}
+
+// --- INITIAL RUN ---
+updateProfileUI();
+renderHabits();
+updateChart();
+renderLeaderboard();
