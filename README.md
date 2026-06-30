@@ -1,5 +1,3 @@
-<img width="655" height="172" alt="image" src="https://github.com/user-attachments/assets/270a185e-0f4c-42bc-afa8-4c0cd200e61e" /># 🌊 HabitRiver - Flow Your Progress, Level Up Your Life
-
 **HabitRiver** adalah aplikasi pelacak kebiasaan (*habit-tracking*) berbasis web yang mengombinasikan visualisasi data modern dengan sistem **gamifikasi (RPG)** untuk membantu pengguna membangun kebiasaan produktif secara konsisten dan menyenangkan. 
 
 Proyek ini dibangun menggunakan teknologi **Vanilla HTML, CSS, dan JavaScript murni** sebagai bagian dari eksperimen proyek pribadi untuk mengeksplorasi manipulasi DOM, manajemen state lokal, logika algoritma berbasis waktu, serta integrasi library visualisasi data.
