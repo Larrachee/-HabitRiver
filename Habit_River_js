@@ -1,3 +1,4 @@
+
 // --- STATE / DATABASE UTAMA ---
 let habits = JSON.parse(localStorage.getItem('habits')) || [];
 let userProfile = JSON.parse(localStorage.getItem('userProfile')) || { xp: 0, level: 1 };
