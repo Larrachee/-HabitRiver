@@ -1,30 +1,36 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HabitRiver - Gamified Habit Tracker</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="index.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-
 <body>
     <div class="container">
+        <!-- Header -->
         <header>
             <div class="brand">
                 <h1>🌊 HabitRiver</h1>
                 <p>Flow Your Progress, Level Up Your Life</p>
             </div>
             <div class="header-right">
-                <button id="theme-toggle" class="btn-icon">☀️ Light Mode</button>
+                <button id="theme-toggle" class="btn-icon">
+                    <i class="fas fa-moon"></i> Dark Mode
+                </button>
+                <button id="reset-data" class="btn-icon" style="color: var(--danger-color);">
+                    <i class="fas fa-trash"></i> Reset
+                </button>
             </div>
         </header>
 
+        <!-- Profile -->
         <section class="profile-section">
             <div class="profile-info">
                 <div class="avatar">👑</div>
-                <div>
+                <div class="profile-stats">
                     <h2 id="user-level">Level 1 (Novice)</h2>
                     <div class="xp-bar-container">
                         <div id="xp-bar" class="xp-bar-fill" style="width: 0%"></div>
@@ -32,12 +38,32 @@
                     <span id="xp-text">0 / 100 XP</span>
                 </div>
             </div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value" id="total-habits">0</div>
+                    <div class="stat-label">Total Habits</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="completed-today">0</div>
+                    <div class="stat-label">Completed Today</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="streak-count">0</div>
+                    <div class="stat-label">Best Streak</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="total-xp">0</div>
+                    <div class="stat-label">Total XP</div>
+                </div>
+            </div>
         </section>
 
+        <!-- Main Layout -->
         <div class="main-layout">
             <div class="left-column">
+                <!-- Add Habit -->
                 <section class="card">
-                    <h2>Add New Habit</h2>
+                    <h2><i class="fas fa-plus-circle"></i> Add New Habit</h2>
                     <form id="habit-form">
                         <input type="text" id="habit-name" placeholder="E.g., Coding, Read Book..." required>
                         <select id="habit-category">
@@ -45,41 +71,52 @@
                             <option value="🏃 Health">🏃 Health</option>
                             <option value="📚 Study">📚 Study</option>
                             <option value="💰 Finance">💰 Finance</option>
+                            <option value="🎨 Creative">🎨 Creative</option>
+                            <option value="🧘 Mindfulness">🧘 Mindfulness</option>
                         </select>
-                        <button type="submit" class="btn-primary">Add</button>
+                        <button type="submit" class="btn-primary">
+                            <i class="fas fa-plus"></i> Add
+                        </button>
                     </form>
                 </section>
 
+                <!-- Habits List -->
                 <section class="card">
-                    <h2>Your Habits</h2>
-                    <div class="filter-container">
-                        <button class="btn-filter active" onclick="filterHabits('All')">All</button>
-                        <button class="btn-filter" onclick="filterHabits('💻 Coding')">💻 Coding</button>
-                        <button class="btn-filter" onclick="filterHabits('🏃 Health')">🏃 Health</button>
-                        <button class="btn-filter" onclick="filterHabits('📚 Study')">📚 Study</button>
-                        <button class="btn-filter" onclick="filterHabits('💰 Finance')">💰 Finance</button>
+                    <h2><i class="fas fa-tasks"></i> Your Habits</h2>
+                    <div class="filter-container" id="filter-container">
+                        <button class="btn-filter active" data-filter="All">All</button>
+                        <button class="btn-filter" data-filter="💻 Coding">💻 Coding</button>
+                        <button class="btn-filter" data-filter="🏃 Health">🏃 Health</button>
+                        <button class="btn-filter" data-filter="📚 Study">📚 Study</button>
+                        <button class="btn-filter" data-filter="💰 Finance">💰 Finance</button>
+                        <button class="btn-filter" data-filter="🎨 Creative">🎨 Creative</button>
+                        <button class="btn-filter" data-filter="🧘 Mindfulness">🧘 Mindfulness</button>
                     </div>
                     <div id="habit-list"></div>
                 </section>
             </div>
 
             <div class="right-column">
+                <!-- Chart -->
                 <section class="card">
-                    <h2>📊 Weekly Progress</h2>
+                    <h2><i class="fas fa-chart-line"></i> Weekly Progress</h2>
                     <div class="chart-container">
                         <canvas id="progressChart"></canvas>
                     </div>
                 </section>
 
+                <!-- Leaderboard -->
                 <section class="card">
-                    <h2>🏆 Top Chart (Leaderboard)</h2>
+                    <h2><i class="fas fa-trophy"></i> Leaderboard</h2>
                     <div id="leaderboard-list"></div>
                 </section>
             </div>
         </div>
     </div>
 
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
     <script src="index.js"></script>
 </body>
-
 </html>
