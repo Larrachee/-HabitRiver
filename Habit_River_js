@@ -1,286 +1,707 @@
-// --- STATE / DATABASE UTAMA ---
-let habits = JSON.parse(localStorage.getItem('habits')) || [];
-let userProfile = JSON.parse(localStorage.getItem('userProfile')) || { xp: 0, level: 1 };
-let currentFilter = 'All'; // Menyimpan state filter kategori aktif
+:root {
+    --bg-color: #0f172a;
+    --card-bg: #1e293b;
+    --text-color: #f8fafc;
+    --text-muted: #94a3b8;
+    --primary-color: #38bdf8;
+    --primary-hover: #0ea5e9;
+    --secondary-color: #818cf8;
+    --border-color: #334155;
+    --grid-empty: #475569;
+    --grid-done: #10b981;
+    --grid-done-hover: #059669;
+    --streak-color: #f97316;
+    --danger-color: #ef4444;
+    --success-color: #22c55e;
+    --shadow-color: rgba(0,0,0,0.3);
+    --radius: 16px;
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
-// Bot Kompetitor untuk Real-time Top Chart / Leaderboard
-const competitors = [
-    { name: "⚡ HabitMaster", baseXp: 450, level: 4 },
-    { name: "🔥 CodeSamurai", baseXp: 280, level: 3 },
-    { name: "🏃 KeepRunning", baseXp: 120, level: 2 },
-    { name: "📚 BookWorm", baseXp: 50, level: 1 }
-];
+[data-theme="light"] {
+    --bg-color: #f1f5f9;
+    --card-bg: #ffffff;
+    --text-color: #0f172a;
+    --text-muted: #64748b;
+    --primary-color: #0284c7;
+    --primary-hover: #0369a1;
+    --secondary-color: #6366f1;
+    --border-color: #e2e8f0;
+    --grid-empty: #cbd5e1;
+    --grid-done: #10b981;
+    --shadow-color: rgba(0,0,0,0.1);
+}
 
-// DOM Elements
-const habitForm = document.getElementById('habit-form');
-const habitNameInput = document.getElementById('habit-name');
-const habitCategoryInput = document.getElementById('habit-category');
-const habitList = document.getElementById('habit-list');
-const themeToggle = document.getElementById('theme-toggle');
-let progressChart;
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    transition: var(--transition);
+}
 
-// --- FITUR THEME TOGGLE ---
-const savedTheme = localStorage.getItem('theme') || 'dark';
-document.documentElement.setAttribute('data-theme', savedTheme);
-themeToggle.textContent = savedTheme === 'light' ? '🌙 Dark Mode' : '☀️ Light Mode';
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    padding: 20px;
+    min-height: 100vh;
+}
 
-themeToggle.addEventListener('click', () => {
-    const currentTheme = document.documentElement.getAttribute('data-theme');
-    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', newTheme);
-    localStorage.setItem('theme', newTheme);
-    themeToggle.textContent = newTheme === 'light' ? '🌙 Dark Mode' : '☀️ Light Mode';
-});
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
 
-// --- LOGIKA TANGGAL (7 HARI TERAKHIR) ---
-function getPastSevenDays() {
-    const days = [];
-    for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const dateStr = d.toISOString().split('T')[0];
-        const label = d.toLocaleDateString('en-US', { weekday: 'short' }).substring(0, 2);
-        days.push({ dateStr, label });
+/* Header */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding: 16px 24px;
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    border: 1px solid var(--border-color);
+    backdrop-filter: blur(10px);
+}
+
+.brand h1 {
+    font-size: 1.8rem;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.brand p {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    -webkit-text-fill-color: var(--text-muted);
+}
+
+.header-right {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.btn-icon {
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    padding: 10px 18px;
+    border-radius: 50px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: var(--transition);
+}
+
+.btn-icon:hover {
+    background: var(--primary-color);
+    color: var(--bg-color);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+}
+
+/* Profile Section */
+.profile-section {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    padding: 20px 24px;
+    border-radius: var(--radius);
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+}
+
+.profile-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color), var(--primary-color));
+    background-size: 200% 100%;
+    animation: shimmer 3s linear infinite;
+}
+
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+.profile-info {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.avatar {
+    font-size: 3rem;
+    background: var(--bg-color);
+    border: 2px solid var(--border-color);
+    padding: 12px;
+    border-radius: 50%;
+    width: 70px;
+    height: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+}
+
+.avatar:hover {
+    transform: rotate(10deg) scale(1.05);
+    border-color: var(--primary-color);
+}
+
+.profile-stats {
+    flex: 1;
+}
+
+.profile-stats h2 {
+    margin-bottom: 6px;
+    font-size: 1.2rem;
+}
+
+.xp-bar-container {
+    width: 100%;
+    max-width: 400px;
+    height: 14px;
+    background-color: var(--grid-empty);
+    border-radius: 50px;
+    overflow: hidden;
+    margin: 6px 0;
+    position: relative;
+}
+
+.xp-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    width: 0%;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+}
+
+.xp-bar-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    animation: shimmer-bar 2s infinite;
+}
+
+@keyframes shimmer-bar {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+#xp-text {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+    width: 100%;
+}
+
+.stat-item {
+    background: var(--bg-color);
+    padding: 10px 16px;
+    border-radius: 12px;
+    text-align: center;
+    border: 1px solid var(--border-color);
+}
+
+.stat-item .stat-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
+.stat-item .stat-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+/* Layout */
+.main-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+@media (max-width: 1024px) {
+    .main-layout {
+        grid-template-columns: 1fr;
     }
-    return days;
 }
 
-// --- PENGHITUNG STREAK ---
-function calculateStreak(history) {
-    let streak = 0;
-    let checkDate = new Date();
-    let todayStr = checkDate.toISOString().split('T')[0];
-    if (!history[todayStr]) {
-        checkDate.setDate(checkDate.getDate() - 1);
+.card {
+    background-color: var(--card-bg);
+    padding: 24px;
+    border-radius: var(--radius);
+    margin-bottom: 24px;
+    border: 1px solid var(--border-color);
+    transition: var(--transition);
+}
+
+.card:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 8px 24px var(--shadow-color);
+}
+
+.card h2 {
+    margin-bottom: 16px;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-color);
+}
+
+.card h2 i {
+    color: var(--primary-color);
+}
+
+/* Form */
+#habit-form {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+#habit-form input,
+#habit-form select {
+    padding: 12px 16px;
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--bg-color);
+    color: var(--text-color);
+    font-size: 0.95rem;
+    transition: var(--transition);
+    flex: 1;
+    min-width: 150px;
+}
+
+#habit-form input:focus,
+#habit-form select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.1);
+}
+
+#habit-form select {
+    cursor: pointer;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    font-weight: 600;
+    border: none;
+    padding: 12px 28px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: var(--transition);
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(56, 189, 248, 0.3);
+}
+
+.btn-primary:active {
+    transform: scale(0.98);
+}
+
+/* Filter Buttons */
+.filter-container {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.btn-filter {
+    background: var(--bg-color);
+    border: 2px solid var(--border-color);
+    color: var(--text-color);
+    padding: 8px 16px;
+    border-radius: 50px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: var(--transition);
+    font-weight: 500;
+}
+
+.btn-filter:hover {
+    border-color: var(--primary-color);
+    transform: translateY(-2px);
+}
+
+.btn-filter.active {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+}
+
+/* Habit Cards */
+.habit-card {
+    border: 2px solid var(--border-color);
+    padding: 16px;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    background: var(--bg-color);
+    transition: var(--transition);
+}
+
+.habit-card:hover {
+    border-color: var(--primary-color);
+    transform: translateX(4px);
+}
+
+.habit-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.habit-title-area {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.habit-title-area h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.category-tag {
+    background: var(--border-color);
+    font-size: 0.75rem;
+    padding: 4px 12px;
+    border-radius: 50px;
+    display: inline-block;
+    font-weight: 500;
+}
+
+.streak-badge {
+    background: rgba(249, 115, 22, 0.15);
+    color: var(--streak-color);
+    padding: 4px 12px;
+    border-radius: 50px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.habit-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.btn-done {
+    background: linear-gradient(135deg, var(--grid-done), var(--grid-done-hover));
+    border: none;
+    padding: 8px 16px;
+    border-radius: 10px;
+    color: white;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-done:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.btn-done.undo {
+    background: var(--danger-color);
+}
+
+.btn-delete {
+    background: var(--danger-color);
+    border: none;
+    padding: 8px 12px;
+    border-radius: 10px;
+    color: white;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.btn-delete:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+/* Grid */
+.grid-container {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    overflow-x: auto;
+    padding: 4px 0;
+}
+
+.grid-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    gap: 4px;
+}
+
+.cube {
+    width: 28px;
+    height: 28px;
+    background-color: var(--grid-empty);
+    border-radius: 6px;
+    transition: var(--transition);
+    cursor: pointer;
+    position: relative;
+}
+
+.cube:hover {
+    transform: scale(1.1);
+}
+
+.cube.completed {
+    background: linear-gradient(135deg, var(--grid-done), var(--grid-done-hover));
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
+}
+
+.cube.completed::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* Chart */
+.chart-container {
+    position: relative;
+    height: 250px;
+    width: 100%;
+}
+
+/* Leaderboard */
+.leaderboard-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.95rem;
+    transition: var(--transition);
+    border-radius: 8px;
+}
+
+.leaderboard-item:hover {
+    background: var(--bg-color);
+}
+
+.leaderboard-item.user-row {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.1), rgba(129, 140, 248, 0.1));
+    border-radius: 8px;
+    font-weight: 600;
+    border: 2px solid var(--primary-color);
+    padding: 12px 16px;
+}
+
+.rank {
+    width: 40px;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.rank.gold { color: #f59e0b; }
+.rank.silver { color: #94a3b8; }
+.rank.bronze { color: #d97706; }
+
+.player-name {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.player-score {
+    color: var(--primary-color);
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+/* Toast Notification */
+.toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.toast {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    padding: 16px 24px;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px var(--shadow-color);
+    animation: slideIn 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 300px;
+    backdrop-filter: blur(10px);
+}
+
+.toast.success {
+    border-left: 4px solid var(--grid-done);
+}
+
+.toast.error {
+    border-left: 4px solid var(--danger-color);
+}
+
+.toast.level-up {
+    border-left: 4px solid var(--streak-color);
+    background: linear-gradient(135deg, var(--card-bg), rgba(249, 115, 22, 0.1));
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
     }
-    while (true) {
-        let dateStr = checkDate.toISOString().split('T')[0];
-        if (history[dateStr]) {
-            streak++;
-            checkDate.setDate(checkDate.getDate() - 1);
-        } else {
-            break;
-        }
+    to {
+        transform: translateX(0);
+        opacity: 1;
     }
-    return streak;
 }
 
-// --- SYSTEM GAMIFIKASI (LEVEL & XP) ---
-function addXP(amount) {
-    userProfile.xp += amount;
-    let nextLevelXp = userProfile.level * 100;
-
-    if (userProfile.xp >= nextLevelXp) {
-        userProfile.xp -= nextLevelXp;
-        userProfile.level += 1;
-        alert(`🎉 LEVEL UP! Kamu naik ke Level ${userProfile.level}!`);
-    } else if (userProfile.xp < 0) {
-        if (userProfile.level > 1) {
-            userProfile.level -= 1;
-            userProfile.xp = (userProfile.level * 100) + userProfile.xp;
-        } else {
-            userProfile.xp = 0;
-        }
-    }
-    localStorage.setItem('userProfile', JSON.stringify(userProfile));
-    updateProfileUI();
-    renderLeaderboard();
+.toast-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1.2rem;
 }
 
-function updateProfileUI() {
-    const nextLevelXp = userProfile.level * 100;
-    const pct = (userProfile.xp / nextLevelXp) * 100;
-    document.getElementById('user-level').textContent = `Level ${userProfile.level} (Explorer)`;
-    document.getElementById('xp-bar').style.width = `${pct}%`;
-    document.getElementById('xp-text').textContent = `${userProfile.xp} / ${nextLevelXp} XP`;
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
 }
 
-// --- TOP CHART (LEADERBOARD) ---
-function renderLeaderboard() {
-    const leaderboardList = document.getElementById('leaderboard-list');
-    leaderboardList.innerHTML = '';
-    let totalUserXp = userProfile.xp;
-    for (let i = 1; i < userProfile.level; i++) { totalUserXp += i * 100; }
-
-    let boardData = [
-        { name: "👑 Kamu (Player)", totalXp: totalUserXp, level: userProfile.level, isUser: true },
-        ...competitors.map(c => ({ name: c.name, totalXp: c.baseXp, level: c.level, isUser: false }))
-    ];
-    boardData.sort((a, b) => b.totalXp - a.totalXp);
-
-    boardData.forEach((player, index) => {
-        const row = document.createElement('div');
-        row.classList.add('leaderboard-item');
-        if (player.isUser) row.classList.add('user-row');
-        row.innerHTML = `
-            <span class="rank">#${index + 1}</span>
-            <span class="player-name">${player.name}</span>
-            <span class="player-score">Lv.${player.level} (${player.totalXp} XP)</span>
-        `;
-        leaderboardList.appendChild(row);
-    });
+.empty-state i {
+    font-size: 3rem;
+    margin-bottom: 12px;
+    opacity: 0.5;
 }
 
-// --- CHART ANALYTICS ---
-function updateChart() {
-    const pastDays = getPastSevenDays();
-    const labels = pastDays.map(d => d.label);
-    const dataValues = pastDays.map(day => habits.filter(h => h.history[day.dateStr]).length);
-
-    if (progressChart) { progressChart.destroy(); }
-
-    const ctx = document.getElementById('progressChart').getContext('2d');
-    progressChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Habits Completed',
-                data: dataValues,
-                borderColor: '#38bdf8',
-                backgroundColor: 'rgba(56, 189, 248, 0.05)',
-                borderWidth: 2,
-                tension: 0.3,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
-        }
-    });
-}
-
-// --- MANAGEMENT FILTER KATEGORI ---
-window.filterHabits = (category) => {
-    currentFilter = category;
-
-    // Ganti class active pada tombol filter UI
-    const filterButtons = document.querySelectorAll('.btn-filter');
-    filterButtons.forEach(btn => {
-        if (btn.textContent === category || (category === 'All' && btn.textContent === 'All')) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
-    });
-    renderHabits(); // Render ulang setelah disaring
-};
-
-// --- CRUD OPERASI HABIT ---
-habitForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const name = habitNameInput.value.trim();
-    const category = habitCategoryInput.value;
-    if (!name) return;
-
-    const newHabit = {
-        id: Date.now().toString(),
-        name: name,
-        category: category, // Menyimpan tag kategori pada object habit
-        history: {}
-    };
-
-    habits.push(newHabit);
-    saveAndRender();
-    habitNameInput.value = '';
-});
-
-window.toggleHabit = (id, dateStr) => {
-    habits = habits.map(habit => {
-        if (habit.id === id) {
-            if (habit.history[dateStr]) {
-                delete habit.history[dateStr];
-                addXP(-15);
-            } else {
-                habit.history[dateStr] = true;
-                addXP(15);
-            }
-        }
-        return habit;
-    });
-    saveAndRender();
-};
-
-window.deleteHabit = (id) => {
-    if (confirm('Hapus habit ini?')) {
-        habits = habits.filter(habit => habit.id !== id);
-        saveAndRender();
-    }
-};
-
-function saveAndRender() {
-    localStorage.setItem('habits', JSON.stringify(habits));
-    renderHabits();
-    updateChart();
-    renderLeaderboard();
-}
-
-// --- RENDER UTAMA DENGAN FILTER ---
-function renderHabits() {
-    habitList.innerHTML = '';
-    const pastDays = getPastSevenDays();
-    const todayStr = new Date().toISOString().split('T')[0];
-
-    // Proses Saring Data Berdasarkan Kategori yang Dipilih
-    const filteredHabits = habits.filter(habit => {
-        if (currentFilter === 'All') return true;
-        return habit.category === currentFilter;
-    });
-
-    if (filteredHabits.length === 0) {
-        habitList.innerHTML = `<p style="text-align:center; color:var(--text-muted); padding:20px;">No habits found in this category.</p>`;
-        return;
+/* Responsive */
+@media (max-width: 640px) {
+    header {
+        flex-direction: column;
+        gap: 12px;
+        align-items: stretch;
+        text-align: center;
     }
 
-    filteredHabits.forEach(habit => {
-        const habitCard = document.createElement('div');
-        habitCard.classList.add('habit-card');
+    .header-right {
+        justify-content: center;
+    }
 
-        const isDoneToday = habit.history[todayStr] ? true : false;
-        const streak = calculateStreak(habit.history);
+    .profile-info {
+        flex-direction: column;
+        text-align: center;
+    }
 
-        habitCard.innerHTML = `
-            <div class="habit-header">
-                <div class="habit-title-area">
-                    <h3>${habit.name}</h3>
-                    <span class="category-tag">${habit.category || '📦 General'}</span>
-                    <span class="streak-badge">🔥 ${streak} Days</span>
-                </div>
-                <div class="habit-actions">
-                    <button class="btn-done" onclick="toggleHabit('${habit.id}', '${todayStr}')">
-                        ${isDoneToday ? '↩️ Undo' : '✅ Done (+15 XP)'}
-                    </button>
-                    <button class="btn-delete" onclick="deleteHabit('${habit.id}')">🗑️</button>
-                </div>
-            </div>
-            <div class="grid-container" id="grid-${habit.id}"></div>
-        `;
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
 
-        habitList.appendChild(habitCard);
+    .habit-header {
+        flex-direction: column;
+    }
 
-        const gridContainer = document.getElementById(`grid-${habit.id}`);
-        pastDays.forEach(day => {
-            const dayWrapper = document.createElement('div');
-            dayWrapper.classList.add('grid-day');
+    .habit-actions {
+        width: 100%;
+    }
 
-            const cube = document.createElement('div');
-            cube.classList.add('cube');
-            if (habit.history[day.dateStr]) cube.classList.add('completed');
+    .habit-actions button {
+        flex: 1;
+        justify-content: center;
+    }
 
-            const label = document.createElement('span');
-            label.textContent = day.label;
+    #habit-form {
+        flex-direction: column;
+    }
 
-            dayWrapper.appendChild(cube);
-            dayWrapper.appendChild(label);
-            gridContainer.appendChild(dayWrapper);
-        });
-    });
+    .toast {
+        min-width: unset;
+        width: 100%;
+    }
 }
 
-// --- INITIAL RUN ---
-updateProfileUI();
-renderHabits();
-updateChart();
-renderLeaderboard();
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-color);
+    border-radius: 50px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 50px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-color);
+}
