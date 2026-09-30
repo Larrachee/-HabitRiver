@@ -1,8 +1,11 @@
 // --- STATE ---
 let habits = JSON.parse(localStorage.getItem('habits')) || [];
 let userProfile = JSON.parse(localStorage.getItem('userProfile')) || { xp: 0, level: 1 };
+let unlockedAchievements = JSON.parse(localStorage.getItem('achievements')) || [];
+let soundEnabled = JSON.parse(localStorage.getItem('soundEnabled')) ?? true;
 let currentFilter = 'All';
 let progressChart;
+let audioCtx;
 
 // --- COMPETITORS ---
 const competitors = [
@@ -14,14 +17,32 @@ const competitors = [
     { name: "🧘 ZenMaster", baseXp: 90, level: 1 }
 ];
 
+// --- ACHIEVEMENTS ---
+const ACHIEVEMENTS = [
+    { id: 'first_habit',   icon: '🌱', name: 'First Step',   desc: 'Create your first habit',           check: () => habits.length >= 1 },
+    { id: 'first_done',    icon: '✅', name: 'Beginner',     desc: 'Complete a habit for the first time', check: () => habits.some(h => Object.keys(h.history).length >= 1) },
+    { id: 'streak_3',      icon: '🔥', name: 'On Fire',      desc: 'Reach a 3-day streak',              check: () => habits.some(h => getBestStreak(h.history) >= 3) },
+    { id: 'streak_7',      icon: '⚡', name: 'Week Warrior', desc: 'Reach a 7-day streak',              check: () => habits.some(h => getBestStreak(h.history) >= 7) },
+    { id: 'streak_30',     icon: '💪', name: 'Unstoppable',  desc: 'Reach a 30-day streak',             check: () => habits.some(h => getBestStreak(h.history) >= 30) },
+    { id: 'five_habits',   icon: '📊', name: 'Multi-tasker', desc: 'Track 5 habits at once',            check: () => habits.length >= 5 },
+    { id: 'perfect_day',   icon: '🌟', name: 'Perfect Day',  desc: 'Complete ALL habits in one day',    check: () => { const t = getTodayStr(); return habits.length > 0 && habits.every(h => h.history[t]); } },
+    { id: 'level_5',       icon: '⭐', name: 'Rising Star',  desc: 'Reach Level 5',                     check: () => userProfile.level >= 5 },
+    { id: 'level_10',      icon: '👑', name: 'Legend',       desc: 'Reach Level 10',                    check: () => userProfile.level >= 10 },
+    { id: 'xp_500',        icon: '💎', name: 'Collector',    desc: 'Earn 500 total XP',                 check: () => getTotalXp() >= 500 }
+];
+
 // --- DOM Elements ---
 const habitForm = document.getElementById('habit-form');
 const habitNameInput = document.getElementById('habit-name');
 const habitCategoryInput = document.getElementById('habit-category');
 const habitList = document.getElementById('habit-list');
 const themeToggle = document.getElementById('theme-toggle');
+const soundToggle = document.getElementById('sound-toggle');
 const toastContainer = document.getElementById('toast-container');
 const resetDataBtn = document.getElementById('reset-data');
+const exportBtn = document.getElementById('export-data');
+const importBtn = document.getElementById('import-data');
+const importFile = document.getElementById('import-file');
 
 // --- THEME ---
 const savedTheme = localStorage.getItem('theme') || 'dark';
@@ -38,8 +59,82 @@ themeToggle.addEventListener('click', () => {
 
 function updateThemeButton(theme) {
     const icon = theme === 'light' ? 'fa-sun' : 'fa-moon';
-    const text = theme === 'light' ? 'Light Mode' : 'Dark Mode';
+    const text = theme === 'light' ? 'Light' : 'Dark';
     themeToggle.innerHTML = `<i class="fas ${icon}"></i> ${text}`;
+}
+
+// --- SOUND ---
+updateSoundButton();
+soundToggle.addEventListener('click', () => {
+    soundEnabled = !soundEnabled;
+    localStorage.setItem('soundEnabled', JSON.stringify(soundEnabled));
+    updateSoundButton();
+    if (soundEnabled) playSound('complete');
+});
+
+function updateSoundButton() {
+    const icon = soundEnabled ? 'fa-volume-high' : 'fa-volume-xmark';
+    const text = soundEnabled ? 'Sound' : 'Muted';
+    soundToggle.innerHTML = `<i class="fas ${icon}"></i> ${text}`;
+    soundToggle.classList.toggle('muted', !soundEnabled);
+}
+
+function playSound(type) {
+    if (!soundEnabled) return;
+    try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const now = audioCtx.currentTime;
+
+        const makeBeep = (freq, start, dur, vol = 0.08, wave = 'sine') => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = wave;
+            osc.frequency.value = freq;
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            gain.gain.setValueAtTime(vol, now + start);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + start + dur);
+            osc.start(now + start);
+            osc.stop(now + start + dur);
+        };
+
+        if (type === 'complete') {
+            makeBeep(800, 0, 0.15, 0.06, 'sine');
+            makeBeep(1200, 0.05, 0.15, 0.05, 'sine');
+        } else if (type === 'undo') {
+            makeBeep(400, 0, 0.15, 0.05, 'triangle');
+        } else if (type === 'levelup') {
+            [523.25, 659.25, 783.99, 1046.5].forEach((f, i) =>
+                makeBeep(f, i * 0.1, 0.3, 0.07, 'sine'));
+        } else if (type === 'achievement') {
+            [659.25, 880].forEach((f, i) =>
+                makeBeep(f, i * 0.12, 0.35, 0.07, 'sine'));
+        }
+    } catch (e) {
+        console.warn('Sound error:', e);
+    }
+}
+
+// --- CONFETTI ---
+function fireConfetti() {
+    if (typeof confetti !== 'function') return;
+    confetti({
+        particleCount: 80,
+        spread: 70,
+        origin: { y: 0.7 },
+        colors: ['#38bdf8', '#818cf8', '#10b981', '#f97316']
+    });
+}
+
+function fireLevelUpConfetti() {
+    if (typeof confetti !== 'function') return;
+    const duration = 2000;
+    const end = Date.now() + duration;
+    (function frame() {
+        confetti({ particleCount: 4, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#38bdf8', '#818cf8'] });
+        confetti({ particleCount: 4, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#f97316', '#10b981'] });
+        if (Date.now() < end) requestAnimationFrame(frame);
+    })();
 }
 
 // --- RESET DATA ---
@@ -48,10 +143,55 @@ resetDataBtn.addEventListener('click', () => {
         localStorage.clear();
         habits = [];
         userProfile = { xp: 0, level: 1 };
+        unlockedAchievements = [];
         localStorage.setItem('userProfile', JSON.stringify(userProfile));
         showToast('All data has been reset', 'error');
         saveAndRender();
     }
+});
+
+// --- EXPORT / IMPORT ---
+exportBtn.addEventListener('click', () => {
+    const data = {
+        habits,
+        userProfile,
+        unlockedAchievements,
+        exportedAt: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `habitriver-backup-${getTodayStr()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('📤 Data exported successfully!', 'success');
+});
+
+importBtn.addEventListener('click', () => importFile.click());
+
+importFile.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        try {
+            const data = JSON.parse(ev.target.result);
+            if (!data.habits || !Array.isArray(data.habits)) throw new Error('Invalid format');
+            habits = data.habits;
+            userProfile = data.userProfile || { xp: 0, level: 1 };
+            unlockedAchievements = data.unlockedAchievements || [];
+            localStorage.setItem('habits', JSON.stringify(habits));
+            localStorage.setItem('userProfile', JSON.stringify(userProfile));
+            localStorage.setItem('achievements', JSON.stringify(unlockedAchievements));
+            saveAndRender();
+            showToast('📥 Data imported successfully!', 'success');
+        } catch (err) {
+            showToast('❌ Failed to import file', 'error');
+        }
+    };
+    reader.readAsText(file);
+    importFile.value = '';
 });
 
 // --- TOAST SYSTEM ---
@@ -61,7 +201,8 @@ function showToast(message, type = 'success', duration = 3000) {
     const icons = {
         success: 'fa-check-circle',
         error: 'fa-exclamation-circle',
-        'level-up': 'fa-star'
+        'level-up': 'fa-star',
+        achievement: 'fa-medal'
     };
     toast.innerHTML = `
         <i class="fas ${icons[type] || icons.success}" style="color: var(--primary-color);"></i>
@@ -98,11 +239,11 @@ function calculateStreak(history) {
     let streak = 0;
     let checkDate = new Date();
     let todayStr = getTodayStr();
-    
+
     if (!history[todayStr]) {
         checkDate.setDate(checkDate.getDate() - 1);
     }
-    
+
     while (true) {
         let dateStr = checkDate.toISOString().split('T')[0];
         if (history[dateStr]) {
@@ -118,15 +259,15 @@ function calculateStreak(history) {
 function getBestStreak(history) {
     let dates = Object.keys(history).sort();
     if (dates.length === 0) return 0;
-    
+
     let bestStreak = 1;
     let currentStreak = 1;
-    
+
     for (let i = 1; i < dates.length; i++) {
-        const prev = new Date(dates[i-1]);
+        const prev = new Date(dates[i - 1]);
         const curr = new Date(dates[i]);
         const diffDays = (curr - prev) / (1000 * 60 * 60 * 24);
-        
+
         if (diffDays === 1) {
             currentStreak++;
             bestStreak = Math.max(bestStreak, currentStreak);
@@ -138,13 +279,21 @@ function getBestStreak(history) {
 }
 
 // --- XP SYSTEM ---
+function getTotalXp() {
+    let total = userProfile.xp;
+    for (let i = 1; i < userProfile.level; i++) total += i * 100;
+    return total;
+}
+
 function addXP(amount) {
     userProfile.xp += amount;
     let nextLevelXp = userProfile.level * 100;
+    let leveledUp = false;
 
     if (userProfile.xp >= nextLevelXp) {
         userProfile.xp -= nextLevelXp;
         userProfile.level += 1;
+        leveledUp = true;
         showToast(`🎉 LEVEL UP! You reached Level ${userProfile.level}!`, 'level-up', 4000);
     } else if (userProfile.xp < 0) {
         if (userProfile.level > 1) {
@@ -154,10 +303,18 @@ function addXP(amount) {
             userProfile.xp = 0;
         }
     }
+
     localStorage.setItem('userProfile', JSON.stringify(userProfile));
+
+    if (leveledUp) {
+        playSound('levelup');
+        fireLevelUpConfetti();
+    }
+
     updateProfileUI();
     renderLeaderboard();
     updateStats();
+    checkAchievements();
 }
 
 // --- UPDATE UI ---
@@ -165,17 +322,12 @@ function updateProfileUI() {
     const nextLevelXp = userProfile.level * 100;
     const pct = Math.min((userProfile.xp / nextLevelXp) * 100, 100);
     const levelNames = ['Novice', 'Explorer', 'Champion', 'Master', 'Legend', 'Mythic'];
-    const levelName = levelNames[Math.min(userProfile.level - 1, levelNames.length - 1)] || 'Legend';
-    
+    const levelName = levelNames[Math.min(userProfile.level - 1, levelNames.length - 1)] || 'Mythic';
+
     document.getElementById('user-level').textContent = `Level ${userProfile.level} (${levelName})`;
     document.getElementById('xp-bar').style.width = `${pct}%`;
     document.getElementById('xp-text').textContent = `${Math.floor(userProfile.xp)} / ${nextLevelXp} XP`;
-    
-    let totalXp = userProfile.xp;
-    for (let i = 1; i < userProfile.level; i++) {
-        totalXp += i * 100;
-    }
-    document.getElementById('total-xp').textContent = totalXp;
+    document.getElementById('total-xp').textContent = getTotalXp();
 }
 
 function updateStats() {
@@ -183,29 +335,63 @@ function updateStats() {
     const total = habits.length;
     const completedToday = habits.filter(h => h.history[today]).length;
     const bestStreak = habits.reduce((max, h) => Math.max(max, getBestStreak(h.history)), 0);
-    
+
     document.getElementById('total-habits').textContent = total;
     document.getElementById('completed-today').textContent = completedToday;
     document.getElementById('streak-count').textContent = bestStreak;
+}
+
+// --- ACHIEVEMENTS ---
+function checkAchievements() {
+    let newUnlocks = [];
+    ACHIEVEMENTS.forEach(ach => {
+        if (!unlockedAchievements.includes(ach.id) && ach.check()) {
+            unlockedAchievements.push(ach.id);
+            newUnlocks.push(ach);
+        }
+    });
+
+    if (newUnlocks.length > 0) {
+        localStorage.setItem('achievements', JSON.stringify(unlockedAchievements));
+        newUnlocks.forEach(ach => {
+            showToast(`🏅 Achievement unlocked: ${ach.name}!`, 'achievement', 4000);
+        });
+        playSound('achievement');
+        renderAchievements();
+    }
+}
+
+function renderAchievements() {
+    const container = document.getElementById('achievements-list');
+    container.innerHTML = '';
+
+    ACHIEVEMENTS.forEach(ach => {
+        const unlocked = unlockedAchievements.includes(ach.id);
+        const card = document.createElement('div');
+        card.className = `achievement-card ${unlocked ? 'unlocked' : ''}`;
+        card.title = `${ach.name} — ${ach.desc}`;
+        card.innerHTML = `
+            <span class="ach-icon">${ach.icon}</span>
+            <span class="ach-name">${ach.name}</span>
+        `;
+        container.appendChild(card);
+    });
 }
 
 // --- LEADERBOARD ---
 function renderLeaderboard() {
     const leaderboardList = document.getElementById('leaderboard-list');
     leaderboardList.innerHTML = '';
-    
-    let totalUserXp = userProfile.xp;
-    for (let i = 1; i < userProfile.level; i++) {
-        totalUserXp += i * 100;
-    }
+
+    const totalUserXp = getTotalXp();
 
     let boardData = [
         { name: "👑 You", totalXp: totalUserXp, level: userProfile.level, isUser: true },
-        ...competitors.map(c => ({ 
-            name: c.name, 
-            totalXp: c.baseXp + (c.level - 1) * 100, 
-            level: c.level, 
-            isUser: false 
+        ...competitors.map(c => ({
+            name: c.name,
+            totalXp: c.baseXp + (c.level - 1) * 100,
+            level: c.level,
+            isUser: false
         }))
     ];
     boardData.sort((a, b) => b.totalXp - a.totalXp);
@@ -214,12 +400,12 @@ function renderLeaderboard() {
         const row = document.createElement('div');
         row.classList.add('leaderboard-item');
         if (player.isUser) row.classList.add('user-row');
-        
+
         let rankClass = '';
         if (index === 0) rankClass = 'gold';
         else if (index === 1) rankClass = 'silver';
         else if (index === 2) rankClass = 'bronze';
-        
+
         row.innerHTML = `
             <span class="rank ${rankClass}">#${index + 1}</span>
             <span class="player-name">${player.name}</span>
@@ -233,11 +419,11 @@ function renderLeaderboard() {
 function updateChart() {
     const pastDays = getPastSevenDays();
     const labels = pastDays.map(d => d.label);
-    const dataValues = pastDays.map(day => 
+    const dataValues = pastDays.map(day =>
         habits.filter(h => h.history[day.dateStr]).length
     );
 
-    if (progressChart) { progressChart.destroy(); }
+    if (progressChart) progressChart.destroy();
 
     const ctx = document.getElementById('progressChart').getContext('2d');
     const gradient = ctx.createLinearGradient(0, 0, 0, 250);
@@ -247,7 +433,7 @@ function updateChart() {
     progressChart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: labels,
+            labels,
             datasets: [{
                 label: 'Habits Completed',
                 data: dataValues,
@@ -266,35 +452,19 @@ function updateChart() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                }
-            },
+            plugins: { legend: { display: false } },
             scales: {
-                y: { 
-                    beginAtZero: true, 
-                    ticks: { 
-                        stepSize: 1,
-                        color: 'var(--text-muted)'
-                    },
-                    grid: {
-                        color: 'var(--border-color)'
-                    }
+                y: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1, color: 'var(--text-muted)' },
+                    grid: { color: 'var(--border-color)' }
                 },
                 x: {
-                    grid: {
-                        display: false
-                    },
-                    ticks: {
-                        color: 'var(--text-muted)'
-                    }
+                    grid: { display: false },
+                    ticks: { color: 'var(--text-muted)' }
                 }
             },
-            interaction: {
-                intersect: false,
-                mode: 'index'
-            }
+            interaction: { intersect: false, mode: 'index' }
         }
     });
 }
@@ -302,56 +472,54 @@ function updateChart() {
 // --- FILTER ---
 function filterHabits(category) {
     currentFilter = category;
-    const filterButtons = document.querySelectorAll('.btn-filter');
-    filterButtons.forEach(btn => {
-        if (btn.dataset.filter === category) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
+    document.querySelectorAll('.btn-filter').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === category);
     });
     renderHabits();
 }
 
-// Setup filter buttons
 document.querySelectorAll('.btn-filter').forEach(btn => {
-    btn.addEventListener('click', () => {
-        filterHabits(btn.dataset.filter);
-    });
+    btn.addEventListener('click', () => filterHabits(btn.dataset.filter));
 });
 
-// --- CRUD OPERATIONS ---
+// --- CRUD ---
 habitForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const name = habitNameInput.value.trim();
     const category = habitCategoryInput.value;
     if (!name) return;
 
-    const newHabit = {
+    habits.push({
         id: Date.now().toString(),
-        name: name,
-        category: category,
+        name,
+        category,
         history: {}
-    };
+    });
 
-    habits.push(newHabit);
     saveAndRender();
     habitNameInput.value = '';
-    showToast(`✅ Habit "${name}" added successfully!`, 'success');
+    showToast(`✅ Habit "${name}" added!`, 'success');
+    playSound('complete');
 });
 
-// Toggle habit completion
-window.toggleHabit = function(id, dateStr) {
+// Toggle habit completion (works for any date — backfill allowed)
+window.toggleHabit = function (id, dateStr) {
+    const today = getTodayStr();
+    const isPast = dateStr !== today;
+
     habits = habits.map(habit => {
         if (habit.id === id) {
             if (habit.history[dateStr]) {
                 delete habit.history[dateStr];
                 addXP(-15);
-                showToast('↩️ Habit undone (-15 XP)', 'error');
+                playSound('undo');
+                showToast(`↩️ ${isPast ? 'Backfill removed' : 'Habit undone'} (-15 XP)`, 'error');
             } else {
                 habit.history[dateStr] = true;
                 addXP(15);
-                showToast('✅ Habit completed! (+15 XP)', 'success');
+                playSound('complete');
+                if (!isPast) fireConfetti();
+                showToast(`✅ Habit completed${isPast ? ' (backfill)' : ''}! (+15 XP)`, 'success');
             }
         }
         return habit;
@@ -359,15 +527,12 @@ window.toggleHabit = function(id, dateStr) {
     saveAndRender();
 };
 
-// Delete habit
-window.deleteHabit = function(id) {
+window.deleteHabit = function (id) {
     if (confirm('Delete this habit?')) {
         const habit = habits.find(h => h.id === id);
-        habits = habits.filter(habit => habit.id !== id);
+        habits = habits.filter(h => h.id !== id);
         saveAndRender();
-        if (habit) {
-            showToast(`🗑️ "${habit.name}" deleted`, 'error');
-        }
+        if (habit) showToast(`🗑️ "${habit.name}" deleted`, 'error');
     }
 };
 
@@ -378,6 +543,7 @@ function saveAndRender() {
     renderLeaderboard();
     updateStats();
     updateProfileUI();
+    checkAchievements();
 }
 
 // --- RENDER HABITS ---
@@ -406,7 +572,7 @@ function renderHabits() {
         const habitCard = document.createElement('div');
         habitCard.classList.add('habit-card');
 
-        const isDoneToday = habit.history[todayStr] ? true : false;
+        const isDoneToday = !!habit.history[todayStr];
         const streak = calculateStreak(habit.history);
 
         habitCard.innerHTML = `
@@ -439,6 +605,9 @@ function renderHabits() {
             const cube = document.createElement('div');
             cube.classList.add('cube');
             if (habit.history[day.dateStr]) cube.classList.add('completed');
+            if (day.dateStr === todayStr) cube.classList.add('today');
+            cube.title = `Click to toggle ${day.dateStr}`;
+            cube.onclick = () => window.toggleHabit(habit.id, day.dateStr);
 
             const label = document.createElement('span');
             label.textContent = day.label;
@@ -450,14 +619,15 @@ function renderHabits() {
     });
 }
 
-// --- INITIALIZATION ---
+// --- INIT ---
 function init() {
     updateProfileUI();
     renderHabits();
     updateChart();
     renderLeaderboard();
     updateStats();
+    renderAchievements();
+    checkAchievements();
 }
 
-// Run initialization
 init();
